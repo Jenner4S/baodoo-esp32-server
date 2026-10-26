@@ -53,6 +53,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # 显式 --repo，避免工作区同时存在 origin/upstream 时 gh 解析到上游仓库
           gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
             --title "上游同步失败 $(date -u +%F)" \
-            --body "自动同步 xinnan-tech/xiaozhi-esp32-server 到 main 失败（最常见原因：合并冲突）。本地执行 git fetch upstream && git merge upstream/main，解决冲突并测试后 push。详见仓库 FORK_SYNC_GUIDE.md。" || true
+            --body "自动同步 xinnan-tech/xiaozhi-esp32-server 到 main 失败（最常见原因：合并冲突）。本地执行 git fetch upstream && git merge upstream/main，解决冲突并测试后 push。详见仓库 FORK_SYNC_GUIDE.md。"
