@@ -1,0 +1,58 @@
+name: sync-upstream
+
+on:
+  schedule:
+    # UTC 03:17 = 北京时间 11:17，避开整点 Actions 队列高峰
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Merge upstream/main into fork main
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout fork main
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Merge upstream
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git remote add upstream https://github.com/xinnan-tech/xiaozhi-esp32-server.git
+          git fetch upstream --tags --prune
+
+          echo "fork main:     $(git rev-parse HEAD)"
+          echo "upstream main: $(git rev-parse upstream/main)"
+
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "already up to date"
+            exit 0
+          fi
+
+          # 冲突时 merge 非零退出，job 直接失败；不会推送半成品
+          git merge --no-edit upstream/main
+
+          git push origin HEAD:main
+
+      - name: Open issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "上游同步失败 $(date -u +%F)" \
+            --body "自动同步 xinnan-tech/xiaozhi-esp32-server 到 main 失败（最常见原因：合并冲突）。本地执行 git fetch upstream && git merge upstream/main，解决冲突并测试后 push。详见仓库 FORK_SYNC_GUIDE.md。" || true
